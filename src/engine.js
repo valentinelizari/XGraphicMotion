@@ -229,119 +229,6 @@ function slashWipe(p, col = C.blue) {
   ctx.restore();
 }
 
-// ── WebGL liquid renderer (SDF metaballs + X monogram morph) ─
-const glc = document.createElement('canvas');
-glc.width = W * SCALE; glc.height = H * SCALE;
-const gl = glc.getContext('webgl2', { premultipliedAlpha: true, preserveDrawingBuffer: true, antialias: false });
-const MAXB = 32;
-const FS = `#version 300 es
-precision highp float;
-uniform vec2 uRes; uniform float uScale;
-uniform vec4 uB[${MAXB}]; uniform vec3 uBC[${MAXB}]; uniform int uN; uniform float uUseBC;
-uniform float uK; uniform vec4 uX; uniform float uXR;
-uniform float uNoise, uTime, uNScale;
-uniform vec3 uC1, uC2; uniform float uCM, uAlpha, uGloss, uRim;
-out vec4 o;
-float smin(float a, float b, float k){ float h = clamp(.5+.5*(b-a)/k, 0., 1.); return mix(b, a, h) - k*h*(1.-h); }
-float sdPoly(vec2 p, vec2 v0, vec2 v1, vec2 v2, vec2 v3){
-  vec2 v[4]; v[0]=v0; v[1]=v1; v[2]=v2; v[3]=v3;
-  float d = dot(p-v[0],p-v[0]); float s = 1.0;
-  for(int i=0, j=3; i<4; j=i, i++){
-    vec2 e = v[j]-v[i]; vec2 w = p-v[i];
-    vec2 b = w - e*clamp(dot(w,e)/dot(e,e),0.,1.);
-    d = min(d, dot(b,b));
-    bvec3 c = bvec3(p.y>=v[i].y, p.y<v[j].y, e.x*w.y>e.y*w.x);
-    if(all(c) || all(not(c))) s*=-1.0;
-  }
-  return s*sqrt(d);
-}
-float sdX(vec2 p){
-  // thick hollow band: top-left -> bottom-right
-  float a = sdPoly(p, vec2(-0.98,-1.0), vec2(-0.47,-1.0), vec2(0.98,1.0), vec2(0.47,1.0));
-  float ring = abs(a + 0.042) - 0.042;
-  // thin stroke: bottom-left -> top-right, interrupted by the band
-  float b = sdPoly(p, vec2(0.80,-1.0), vec2(0.95,-1.0), vec2(-0.80,1.0), vec2(-0.95,1.0));
-  b = max(b, -(a - 0.055));
-  return min(ring, b);
-}
-float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
-float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
-  return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
-void main(){
-  vec2 p = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uScale;
-  vec2 q = p;
-  if(uNoise > 0.){
-    vec2 np = p*uNScale;
-    q += uNoise*(vec2(noise(np+vec2(uTime*.7, 0.)), noise(np+vec2(5.2, 1.3-uTime*.6)))-.5)*2.;
-  }
-  float d = 1e5; vec3 bc = vec3(0.); float wsum = 0.;
-  for(int i=0;i<${MAXB};i++){
-    if(i>=uN) break;
-    vec4 b = uB[i];
-    float di = length(q-b.xy) - b.z;
-    d = smin(d, di, uK);
-    if(uUseBC > .5){ float w = 1./pow(max(di + uK*1.5, 1.), 3.); bc += uBC[i]*w; wsum += w; }
-  }
-  if(uX.w > 0.){
-    vec2 xp = (q - uX.xy) / uX.z;
-    float dx = sdX(xp) * uX.z;
-    d = (uN==0) ? dx : mix(d, dx, uX.w);
-  }
-  float aa = 0.9/uScale;
-  float a = 1. - smoothstep(-aa, aa, d);
-  if(a <= 0.){ o = vec4(0.); return; }
-  vec3 col = mix(uC1, uC2, uCM);
-  if(uUseBC > .5 && wsum > 0.) col = bc/wsum;
-  float h = clamp(-d/34., 0., 1.); h = 1. - (1.-h)*(1.-h);
-  vec2 g = vec2(dFdx(h), -dFdy(h)) * uScale * 26.;
-  vec3 n = normalize(vec3(-g, 1.));
-  vec3 L = normalize(vec3(-.55, -.65, .55));
-  float diff = clamp(dot(n, L), 0., 1.);
-  vec3 hv = normalize(L + vec3(0,0,1));
-  float spec = pow(clamp(dot(n, hv), 0., 1.), 40.);
-  col = col * mix(1., .72 + .38*diff, uGloss) + uGloss * spec * .85;
-  float rim = (1. - smoothstep(0., 2.2, -d)) * uRim;
-  col = mix(col, vec3(1.), rim);
-  o = vec4(col * a * uAlpha, a * uAlpha);
-}`;
-const VS = `#version 300 es
-in vec2 pos; void main(){ gl_Position = vec4(pos,0.,1.); }`;
-function mkShader(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
-const prog_ = gl.createProgram();
-gl.attachShader(prog_, mkShader(gl.VERTEX_SHADER, VS)); gl.attachShader(prog_, mkShader(gl.FRAGMENT_SHADER, FS));
-gl.linkProgram(prog_); if (!gl.getProgramParameter(prog_, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog_));
-gl.useProgram(prog_);
-const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb);
-gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-const pl = gl.getAttribLocation(prog_, 'pos'); gl.enableVertexAttribArray(pl); gl.vertexAttribPointer(pl, 2, gl.FLOAT, false, 0, 0);
-const U = {}; ['uRes', 'uScale', 'uB', 'uBC', 'uN', 'uUseBC', 'uK', 'uX', 'uXR', 'uNoise', 'uTime', 'uNScale', 'uC1', 'uC2', 'uCM', 'uAlpha', 'uGloss', 'uRim'].forEach(n => U[n] = gl.getUniformLocation(prog_, n));
-gl.viewport(0, 0, glc.width, glc.height);
-
-/* liquid({balls:[{x,y,r,c?}], k, x:{x,y,s,m}, c1, c2, cm, noise, nscale, time, alpha, gloss, rim}) */
-function liquid(o) {
-  const balls = (o.balls || []).filter(b => b.r > 0.01).slice(0, MAXB);
-  const B = new Float32Array(MAXB * 4), BC = new Float32Array(MAXB * 3);
-  balls.forEach((b, i) => { B.set([b.x, b.y, b.r, 0], i * 4); BC.set(b.c || o.c1 || RGB.white, i * 3); });
-  const xm = o.x ? o.x.m : 0;
-  if (!balls.length && xm <= 0) return;
-  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-  gl.uniform2f(U.uRes, glc.width, glc.height); gl.uniform1f(U.uScale, SCALE);
-  gl.uniform4fv(U.uB, B); gl.uniform3fv(U.uBC, BC); gl.uniform1i(U.uN, balls.length);
-  gl.uniform1f(U.uUseBC, o.useBC ? 1 : 0);
-  gl.uniform1f(U.uK, o.k ?? 30);
-  gl.uniform4f(U.uX, o.x ? o.x.x : 0, o.x ? o.x.y : 0, o.x ? o.x.s : 1, xm);
-  gl.uniform1f(U.uNoise, o.noise || 0); gl.uniform1f(U.uTime, o.time || 0); gl.uniform1f(U.uNScale, o.nscale || 0.008);
-  gl.uniform3fv(U.uC1, o.c1 || RGB.white); gl.uniform3fv(U.uC2, o.c2 || o.c1 || RGB.white); gl.uniform1f(U.uCM, o.cm || 0);
-  gl.uniform1f(U.uAlpha, o.alpha ?? 1); gl.uniform1f(U.uGloss, o.gloss ?? 0.5); gl.uniform1f(U.uRim, o.rim || 0);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  // composite with the current 2D transform (camera aware)
-  ctx.save();
-  const m = ctx.getTransform();
-  ctx.setTransform(m.a / SCALE, m.b / SCALE, m.c / SCALE, m.d / SCALE, m.e, m.f);
-  ctx.drawImage(glc, 0, 0);
-  ctx.restore();
-}
-
 // ── timeline ────────────────────────────────────────────────
 const SCENES = []; const CUES = [];
 let cursor = 0;
@@ -365,3 +252,21 @@ function render(t) {
 const POST = [];
 window.render = render;
 window.CUES = CUES;
+
+// ── vector marks (crisp, no liquid) ─────────────────────────
+// X monogram (24-unit box) and the classic Twitter bird (24-unit box) — used for the brand analysis
+const XPATH = new Path2D('M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z');
+const BIRDPATH = new Path2D('M23.643 4.937c-.835.37-1.732.62-2.675.733.962-.576 1.7-1.49 2.048-2.578-.9.534-1.897.922-2.958 1.13-.85-.904-2.06-1.47-3.4-1.47-2.572 0-4.658 2.086-4.658 4.66 0 .364.042.718.12 1.06-3.873-.195-7.304-2.05-9.602-4.868-.4.69-.63 1.49-.63 2.342 0 1.616.823 3.043 2.072 3.878-.764-.025-1.482-.234-2.11-.583v.06c0 2.257 1.605 4.14 3.737 4.568-.392.106-.803.162-1.227.162-.3 0-.593-.028-.877-.082.593 1.850 2.313 3.198 4.352 3.234-1.595 1.250-3.604 1.995-5.786 1.995-.376 0-.747-.022-1.112-.065 2.062 1.323 4.510 2.093 7.140 2.093 8.570 0 13.255-7.098 13.255-13.254 0-.2-.005-.402-.014-.602.910-.658 1.700-1.477 2.323-2.410z');
+// s = half height in px
+function drawX(cx, cy, s, col = '#fff', alpha = 1) {
+  if (s <= 0.01 || alpha <= 0) return;
+  const k = 2 * s / 19.5;
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.translate(cx - 11.9 * k, cy - 12 * k); ctx.scale(k, k);
+  ctx.fillStyle = col; ctx.fill(XPATH, 'evenodd'); ctx.restore();
+}
+function drawBird(cx, cy, s, col = C.celeste, alpha = 1) {
+  if (s <= 0.01 || alpha <= 0) return;
+  const k = 2 * s / 19.5;
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.translate(cx - 11.8 * k, cy - 12.1 * k); ctx.scale(k, k);
+  ctx.fillStyle = col; ctx.fill(BIRDPATH); ctx.restore();
+}

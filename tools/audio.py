@@ -61,6 +61,8 @@ for b in range(nb):
     if b % 2 == 1: add(music, CL, t, .55, pan=.1)
     add(music, HO, t + BEAT / 2, .45, pan=-.2)
     for s in (1, 3): add(music, HC, t + s * BEAT / 4, .35, pan=.25)
+for b in range(4):
+    add(music, K, b * BEAT, .8)
 # a snare roll into the drop
 for k in range(16):
     add(music, CL, 12.0 + k * .125, .1 + .4 * k / 16)
@@ -118,59 +120,95 @@ music[0] += arp * arpg * 1.1; music[1] += np.roll(arp, 2400) * arpg * .9   # pin
 
 music *= duck
 
-# ── sound design ──
-def whoosh(d, bright=1.0):
-    n = noise(d); t = t_axis(d); x = np.zeros_like(n)
-    # time-varying one-pole lowpass (cutoff sweeps up then down)
-    fc = 300 + 5000 * bright * np.sin(np.pi * t / d) ** 2
-    a = np.exp(-2 * np.pi * fc / SR); y = 0.0
-    for i in range(len(n)):
-        y = a[i] * y + (1 - a[i]) * n[i]; x[i] = y
-    return x * np.sin(np.pi * t / d) ** 1.5 * 1.6
-def impact(big=False):
-    d = 2.2 if big else 1.4; t = t_axis(d)
-    boom = sweep(90, 28, d) * np.exp(-t / (.45 if big else .3))
-    crack = fft_filter(noise(d), hi=3000) * np.exp(-t / .12) * .5
-    tail = fft_filter(noise(d), lo=200, hi=2500) * np.exp(-t / .7) * .12
-    return np.tanh((boom * 1.4 + crack + tail) * 1.2)
-def hit(big=False):
-    d = .35; t = t_axis(d)
-    return np.tanh(sweep(140, 50, d) * np.exp(-t / .09) * 1.3 + fft_filter(noise(d), lo=800, hi=7000) * np.exp(-t / .05) * .6) * (1.1 if big else .8)
-def riser(d):
+# ── sound design: tonal, clean, no low-frequency noise ──
+# notes in A minor so every "appearance" sound is in key with the music
+SCALE = [69, 72, 74, 76, 79, 81, 84, 86, 88]
+def tone(f, d, tau, harm=(1, .35, .12)):
     t = t_axis(d)
-    tone = sweep(180, 1800, d) * .25 + sweep(181.5, 1815, d) * .25
-    nz = fft_filter(noise(d), lo=1200) * .5
-    return (tone + nz) * (t / d) ** 2.2
-def tick(): d = .03; return fft_filter(noise(d), lo=2500, hi=9000) * np.exp(-t_axis(d) / .004)
-def pop(): d = .12; t = t_axis(d); return sweep(900, 260, d) * np.exp(-t / .04)
-def bloop(): d = .16; t = t_axis(d); return sweep(240, 900, d) * np.sin(np.pi * t / d) * .9
-def blip(): d = .06; t = t_axis(d); return np.sin(2 * np.pi * 1320 * t) * np.exp(-t / .018)
-def fall(): d = 1.0; t = t_axis(d); return sweep(900, 90, d) * np.exp(-t / .5) * .6
-def stretch(): d = 1.0; t = t_axis(d); f = 200 + 120 * np.sin(2 * np.pi * 3 * t) * np.exp(-t / .4); return np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t / .5) * .5
+    return sum(h * np.sin(2 * np.pi * f * (k + 1) * t) for k, h in enumerate(harm)) * np.exp(-t / tau) * np.minimum(t / .002, 1)
+def click(d=.004):
+    return fft_filter(noise(.02), lo=5000) * np.exp(-t_axis(.02) / d) * .5
+def swipe(d=.3, up=True):
+    """airy high swipe: only content above 4 kHz plus a thin pitched sweep — no rumble."""
+    t = t_axis(d); env = np.sin(np.pi * t / d) ** 2
+    air = fft_filter(noise(d), lo=4500, hi=12000) * env * .35
+    pit = sweep(900, 3200, d) if up else sweep(3200, 900, d)
+    return air + pit * env * .12
+def zap(hi=False):
+    d = .22; t = t_axis(d)
+    x = sweep(4200 if hi else 3000, 160, d) * np.exp(-t / .07)
+    x += .3 * np.sign(sweep(2100 if hi else 1500, 80, d)) * np.exp(-t / .03)
+    x = np.tanh(x * 1.2) * .8; x[:len(click())] += click(); return x
+def shatter():
+    d = .7; t = t_axis(d); x = np.zeros_like(t)
+    for k in range(14):
+        f = rng.uniform(2500, 7500); st = rng.uniform(0, .12); tt = np.maximum(t - st, 0)
+        x += np.sin(2 * np.pi * f * tt) * np.exp(-tt / rng.uniform(.04, .14)) * (t >= st) * rng.uniform(.3, 1)
+    return x * .18 + fft_filter(noise(d), lo=6000) * np.exp(-t / .05) * .25
+def chirp():
+    x = np.zeros(int(.3 * SR))
+    for st, f0, f1 in ((0, 2600, 4100), (.11, 2900, 4300)):
+        y = sweep(f0, f1, .07) * np.sin(np.pi * t_axis(.07) / .07); i = int(st * SR); x[i:i + len(y)] += y
+    return x * .6
+def stab(n=0):
+    """short synth chord stab (A minor family), used for the opening montage and hits."""
+    d = .32; t = t_axis(d); ch = [CH[0], CH[1], CH[2], CH[3]][n % 4]
+    x = sum(saw(mtof(m + 12), d, det) for m in ch for det in (-.006, .006)) / 6
+    x = fft_filter(x * np.exp(-t / .09), hi=2600)
+    return x * 1.3 + tone(mtof(ch[0] - 12), d, .12, (1,)) * .6
+def impact(big=False):
+    d = 2.0 if big else 1.3; t = t_axis(d)
+    sub = sweep(85, 32, d) * np.exp(-t / (.5 if big else .32))
+    body = tone(mtof(45), d, .25, (1, .5, .25)) * .35
+    chord = fft_filter(sum(saw(mtof(m), d, det) for m in (57, 64, 69, 72) for det in (-.004, .004)) / 8 * np.exp(-t / .6), hi=1800) * .5
+    x = np.tanh((sub * 1.5 + body) * 1.1) + chord
+    x[:len(click())] += click(.006) * 1.4
+    return x
+def hit(big=False):
+    d = .3; t = t_axis(d)
+    x = np.tanh(sweep(130, 50, d) * np.exp(-t / .08) * 1.4) + tone(mtof(rng.choice([57, 60, 64])), d, .07) * .25
+    x[:len(click())] += click() * .8
+    return x * (1.0 if big else .75)
+def riser(d):
+    t = t_axis(d); x = np.zeros_like(t)
+    for k, m in enumerate((45, 52, 57, 64)):
+        f0, f1 = mtof(m), mtof(m + 24)
+        x += saw(1, d) * 0 + np.sin(2 * np.pi * np.cumsum(f0 * (f1 / f0) ** (t / d)) / SR) * (.6 - k * .1)
+    shimmer = np.sin(2 * np.pi * 11 * t) * .5 + .5
+    return x * (t / d) ** 2.5 * (.7 + .3 * shimmer) * .5
+def tick():
+    x = tone(3200, .03, .006, (1,)) * .25; c = click(.003)[:len(x)]; x[:len(c)] += c * .9; return x
+def pop(n=None): f = mtof(SCALE[n % len(SCALE)] if n is not None else rng.choice(SCALE)); return tone(f, .25, .07) * .9
+def bloop(n=None):
+    d = .14; f = mtof(rng.choice(SCALE[:5]))
+    return sweep(f * .7, f * 1.3, d) * np.sin(np.pi * t_axis(d) / d) * .6
+def blip(n=None): f = mtof(SCALE[(n if n is not None else rng.integers(0, 9)) % len(SCALE)] + 12); return tone(f, .1, .03, (1, .2)) * .7
+def fall(): d = 1.0; t = t_axis(d); return sweep(1200, 140, d) * np.exp(-t / .45) * .5
 def chime():
     d = 4.0; t = t_axis(d)
     return sum(np.sin(2 * np.pi * mtof(m) * t) * np.exp(-t / 1.4) * g for m, g in ((81, .3), (76, .25), (69, .3), (88, .1)))
 
-cache = {}
 for c in cues['cues']:
-    ty, t = c['type'], c['t']; soft = c.get('soft', 0); big = c.get('big', 0)
+    ty, t = c['type'], c['t']; soft = c.get('soft', 0); big = c.get('big', 0); n = c.get('n')
     g = .5 if soft else 1.0
-    if ty == 'tick': add(sfx, tick(), t, .35 * g, pan=rng.uniform(-.3, .3))
-    elif ty == 'click': add(sfx, tick(), t, .8); add(sfx, pop(), t, .35)
-    elif ty == 'pop': add(sfx, pop(), t, .45 * g)
-    elif ty == 'bloop': add(sfx, bloop(), t, .45 * g, pan=rng.uniform(-.4, .4))
-    elif ty == 'blip': add(sfx, blip(), t, .3 * g, pan=rng.uniform(-.3, .3))
-    elif ty in ('whoosh', 'swoosh', 'cut'):
-        d = c.get('len', .4 if ty == 'swoosh' else .22 if ty == 'cut' else .6)
-        key = (ty, round(d, 2))
-        if key not in cache: cache[key] = whoosh(d, 1.0 if ty != 'cut' else .6)
-        gg = {'whoosh': .55, 'swoosh': .4, 'cut': .22}[ty] * g
-        add(sfx, cache[key], t - d * .55, gg, pan=rng.uniform(-.5, .5))
-    elif ty == 'impact': add(sfx, impact(bool(big)), t, .85 if big else .6)
+    pan = float(rng.uniform(-.35, .35))
+    if ty == 'tick': add(sfx, tick(), t, .45 * g, pan)
+    elif ty == 'click': add(sfx, tick(), t, .9); add(sfx, pop(5), t, .4)
+    elif ty == 'pop': add(sfx, pop(n), t, .4 * g, pan)
+    elif ty == 'bloop': add(sfx, bloop(n), t, .4 * g, pan)
+    elif ty == 'blip': add(sfx, blip(n), t, .32 * g, pan)
+    elif ty == 'whoosh': d = c.get('len', .5); add(sfx, swipe(min(d, .6)), t - min(d, .6) * .6, .45 * g, pan)
+    elif ty == 'swoosh': add(sfx, swipe(.3), t - .18, .4 * g, pan)
+    elif ty == 'cut': add(sfx, swipe(.16, up=False), t - .06, .22, pan)
+    elif ty == 'impact': add(sfx, impact(bool(big)), t, .8 if big else .6)
     elif ty == 'hit': add(sfx, hit(bool(big)), t, .55 * g)
+    elif ty == 'stab': add(sfx, stab(n or 0), t, .55); add(sfx, hit(), t, .35)
+    elif ty == 'zap': add(sfx, zap(bool(c.get('hi'))), t, .45, -.4 if not c.get('hi') else .4)
+    elif ty == 'shatter': add(sfx, shatter(), t, .7)
+    elif ty == 'chirp': add(sfx, chirp(), t, .35, .2)
     elif ty == 'riser': add(sfx, riser(c.get('len', 2)), t, .35)
-    elif ty == 'fall': add(sfx, fall(), t, .5)
-    elif ty == 'stretch': add(sfx, stretch(), t, .5)
+    elif ty == 'fall': add(sfx, fall(), t, .45)
+    elif ty == 'stretch': add(sfx, swipe(.5), t, .3)
     elif ty == 'end': add(sfx, chime(), t, .35)
 
 # simple convolution reverb on the sfx bus
@@ -180,7 +218,7 @@ def conv(x):
     n = len(x) + irl; L = 1 << (n - 1).bit_length()
     return np.fft.irfft(np.fft.rfft(x, L) * np.fft.rfft(ir, L), L)[: len(x)]
 wet = np.stack([conv(sfx[0]), conv(np.roll(sfx[1], 300))])
-mix = music * .8 + sfx * .9 + wet * .18
+mix = music * .8 + sfx * .9 + wet * .1
 
 # master: gentle fades, soft clip, normalize
 fade = np.ones(N); fi = int(.05 * SR); fade[:fi] = np.linspace(0, 1, fi)
