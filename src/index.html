@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>X · ¿Qué está pasando?</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block;width:100vw;height:auto}</style>
+</head><body><canvas id="c"></canvas>
+<script src="engine.js"></script>
+<script src="scenes.js"></script>
+<script>
+window.ready = (async () => {
+  const loads = [];
+  for (const w of [400,500,600,700,800,900]) { loads.push(document.fonts.load(`${w} 100px "Inter Display"`)); loads.push(document.fonts.load(`${w} 100px "Inter"`)); }
+  await Promise.all(loads);
+  return { total: window.TOTAL, cues: window.CUES };
+})();
+// interactive preview when opened directly: ?play
+if (new URLSearchParams(location.search).has('play')) {
+  window.ready.then(() => { const t0 = performance.now(); const f = () => { render(((performance.now() - t0) / 1000) % TOTAL); requestAnimationFrame(f); }; f(); });
+}
+</script></body></html>
