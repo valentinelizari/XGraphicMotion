@@ -215,12 +215,11 @@ function glitch(amount, seed) {
 // blue slash wipe (the "/" of 1/6 as transition device). p: 0→1
 function slashWipe(p, col = C.blue) {
   if (p <= 0 || p >= 1) return;
-  const e = E.inOutExpo(p);
-  const x = lerp(-W * 0.9, W * 1.9, e);
-  const skew = 420;
+  const e = E.inOutCubic(p);
+  const skew = 420, w = W + skew * 2 + 200;
+  const x = lerp(-w / 2 - skew - 60, W + w / 2 + skew + 160, e);
   ctx.save(); ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
   ctx.fillStyle = col;
-  const w = W * 0.95;
   ctx.beginPath();
   ctx.moveTo(x - w / 2 + skew, -10); ctx.lineTo(x + w / 2 + skew, -10);
   ctx.lineTo(x + w / 2 - skew, H + 10); ctx.lineTo(x - w / 2 - skew, H + 10); ctx.closePath(); ctx.fill();

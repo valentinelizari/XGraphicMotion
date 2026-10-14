@@ -232,7 +232,7 @@ function chapterCard(n, tag, title) {
     }
     label('Post ' + n + ' de 6', W - 120, 125, lt - .2, { align: 'right', size: 16 });
   }, { punch: false });
-  WIPES.push([s + 1.02, .7]);
+  WIPES.push([s + 1.12, .76]);
   cue('impact', s); cue('hit', s + .08); cue('whoosh', s + 1.0, { len: .7 });
   return s;
 }
