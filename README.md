@@ -1,6 +1,6 @@
 # X · ¿Qué está pasando?
 
-Pieza de motion graphics (124 s, 4K/60 fps) que presenta el TP *“¿Qué está pasando con X?”*
+Pieza de motion graphics (134 s, 4K/60 fps) que presenta el TP *“¿Qué está pasando con X?”*
 (UADE · FACE · Construcción y Gestión de Marca · 2C 2026): contexto, identidad, posicionamiento,
 mix, Brand Health Tracker y brand book, contado como un hilo de 6 posts.
 
@@ -24,7 +24,7 @@ sonoro tonal (afinado en la tonalidad) y cada corte en el pulso.
 ## Render
 
 ```bash
-tools/render_all.sh 2 60 out 16 4            # 3840×2160 @ 60 fps → out/video.mp4
+TOTAL=134 tools/render_all.sh 2 60 out 16 4   # 3840×2160 @ 60 fps → out/video.mp4
 node tools/cues.mjs cues.json                 # exporta los cues de sonido
 python3 tools/audio.py cues.json soundtrack.wav
 ffmpeg -i out/video.mp4 -i soundtrack.wav -c:v copy -c:a aac -b:a 320k -shortest X_que_esta_pasando_4K.mp4

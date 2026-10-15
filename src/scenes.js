@@ -84,7 +84,7 @@ function shockwave(lt, t0, x, y, max = 900) {
 function birdToXCues(t0) { cue('zap', t0); cue('zap', t0 + .2, { hi: 1 }); cue('shatter', t0 + .4); cue('riser', t0 + .7, { len: .75 }); cue('impact', t0 + 1.45, { big: 1 }); }
 
 const Q = '¿Qué está pasando?';
-const HOOK = [['2006', C.celeste, 300], ['twttr', C.white, 250], ['2023', C.white, 300], ['X', C.white, 300], ['90%', C.blue, 340], ['×2', C.white, 380], ['3,3/5', C.blue, 280], ['¿?', C.white, 420]];
+const HOOK = [['2006', C.celeste, 300], ['twttr', C.white, 250], ['2023', C.white, 300], ['X', C.white, 300], ['90%', C.blue, 340], ['×2', C.white, 380], ['−60%', C.blue, 330], ['¿?', C.white, 420]];
 const HOOKPOS = [[-300, -40, -.05], [260, 60, .04], [-140, 50, 0], [0, 0, 0], [240, -70, .05], [-260, 40, -.04], [120, -30, .03], [0, 0, 0]];
 scene('intro', 14, (lt) => {
   // 0–2 s: hook montage, one slam every 1/4 beat
@@ -394,7 +394,7 @@ scene('c1-mapa', 3, (lt, d) => {
     rrect(-w / 2, -26, w, 52, 26); ctx.fillStyle = fill; ctx.fill();
     ctx.fillStyle = col; ctx.fillText(name, -w / 2 + 22, 10); ctx.restore();
   };
-  ['Threads', 'Bluesky', 'Mastodon'].forEach((n, i) => {
+  ['Threads · retador', 'Bluesky · nicho', 'Mastodon · nicho'].forEach((n, i) => {
     const a = -Math.PI / 2 + i * Math.PI * 2 / 3 + lt * .35;
     chip(n, CX + Math.cos(a) * 380, 580 + Math.sin(a) * 210, E.outBackS(prog(lt, .5 + i * .08, .85 + i * .08)), C.blue, '#fff');
   });
@@ -402,6 +402,7 @@ scene('c1-mapa', 3, (lt, d) => {
     const a = -Math.PI * .8 + i * Math.PI / 2 - lt * .18;
     chip(n, CX + Math.cos(a) * 760, 580 + Math.sin(a) * 380, E.outBackS(prog(lt, .8 + i * .07, 1.15 + i * .07)), '#202327', '#fff');
   });
+  { const lp = E.outBackS(prog(lt, .35, .7)); if (lp > 0) { ctx.save(); ctx.translate(CX, 690); ctx.scale(lp, lp); rrect(-62, -20, 124, 40, 20); ctx.fillStyle = '#fff'; ctx.fill(); font(20, 800, TEXT, .12); ctx.fillStyle = '#000'; ctx.fillText('LÍDER', -tw('LÍDER') / 2, 7); ctx.restore(); } }
   label('Competencia directa', CX, 830, lt - .9, { align: 'center', color: C.blue, size: 18 });
   label('Competencia indirecta', CX, 1010, lt - 1.1, { align: 'center', color: C.grey, size: 18 });
   ctx.globalAlpha = ga;
@@ -442,6 +443,62 @@ scene('c1-numeros', 4.5, (lt, d) => {
 GLITCH.push([SCENES[SCENES.length - 1].s + 2.35, .14, .9]);
 cue('whoosh', SCENES[SCENES.length - 1].s + 2.25, { len: .35 }); cue('hit', SCENES[SCENES.length - 1].s + 2.35); cue('impact', SCENES[SCENES.length - 1].s + 3.3);
 
+scene('c1-ingresos', 3.5, (lt, d) => {
+  header(lt, 1, '#Contexto');
+  const ea = exitAlpha(lt, d, .35);
+  ctx.save(); ctx.globalAlpha = ea;
+  label('Ingresos publicitarios de Twitter / X', 120, 230, lt, { color: C.grey });
+  kt('La publicidad se desplomó', 120, 330, { t: lt - .05, size: 80, weight: 900, st: .012 });
+  const base = 930, k = 430 / 4500;
+  const B = [[430, 4500, '#8B98A5', '2021', 'último balance público'], [790, 1800, C.blue, '2025', 'datos de SpaceX (2026)']];
+  B.forEach(([x, v, col, yr, src], i) => {
+    const s = .25 + i * .2;
+    let val = 4500 * E.outExpo(prog(lt, s, s + .6));
+    if (i === 1) val = lerp(val, 1800, E.outBack(prog(lt, 1.0, 1.5)));
+    const h = val * k;
+    rrect(x, base - h, 260, h, 14); ctx.fillStyle = col; ctx.fill();
+    text('USD ' + fmt(Math.round(val / 100) * 100) + ' M', x + 130, base - h - 22, { size: 44, weight: 900, align: 'center', alpha: ea * clamp((lt - s) * 4) });
+    text(yr, x + 130, base + 46, { size: 32, weight: 800, align: 'center', alpha: ea * clamp((lt - s) * 4) });
+    text(src, x + 130, base + 80, { size: 20, weight: 500, fam: TEXT, color: C.grey, align: 'center', alpha: ea * clamp((lt - s) * 4) });
+  });
+  const pp = E.outBackS(prog(lt, 1.5, 1.85));
+  if (pp > 0) {
+    const [sx, sy] = shake(lt, 1.5, 18, .35);
+    ctx.save(); ctx.translate(1530 + sx, 640 + sy); ctx.scale(pp, pp); ctx.rotate(-.05);
+    text('−60%', 0, 90, { size: 230, weight: 900, color: C.blue, align: 'center' }); ctx.restore();
+  }
+  text('Para compensarlo, apostó a las suscripciones:', 1530, 820, { size: 26, weight: 500, fam: TEXT, color: C.grey, align: 'center', alpha: ea * E.outCubic(prog(lt, 2.1, 2.5)) });
+  kt('4,4 M de suscriptores', 1530, 880, { t: lt - 2.25, size: 52, weight: 900, align: 'center', st: .012, color: hl('4,4 M de suscriptores', '4,4 M', C.white, C.blue) });
+  ctx.restore();
+});
+{ const s = SCENES[SCENES.length - 1].s; cue('blip', s + .25); cue('blip', s + .45); cue('fall', s + .95); cue('impact', s + 1.5); GLITCH.push([s + 1.5, .1, .8]); cue('pop', s + 2.25); }
+
+scene('c1-innovacion', 3.5, (lt, d) => {
+  header(lt, 1, '#Contexto');
+  const out = d - .4;
+  label('Notas de la Comunidad · verificación colaborativa', 120, 230, lt, { color: C.blue, alpha: 1 - prog(lt, out, out + .2) });
+  kt('X innova.', 120, 380, { t: lt - .05, size: 150, weight: 900, st: .025, mode: 'stretch', dur: .35, out, outSt: .006, outDur: .3 });
+  kt('La categoría copia.', 120, 530, { t: lt - .45, size: 150, weight: 900, st: .015, color: C.blue, out: out + .04, outSt: .006, outDur: .3 });
+  // timeline
+  const T = [['2021', 'Birdwatch', true], ['2022', 'Notas de la Comunidad', true], ['2025', 'Meta la adopta', false], ['2025', 'TikTok · Footnotes', false]];
+  const y = 770, x0 = 160, x1 = 1760, lp = E.outExpo(prog(lt, .7, 1.6)) * (1 - E.inExpo(prog(lt, out, d)));
+  ctx.fillStyle = C.line; ctx.fillRect(x0, y - 1.5, (x1 - x0) * lp, 3);
+  T.forEach(([yr, nm, own], i) => {
+    const x = x0 + (x1 - x0) * (i + .5) / 4, s = .85 + i * .22;
+    const p = E.outBackS(prog(lt, s, s + .35)) * (1 - E.inBack(prog(lt, out, d)));
+    if (p <= 0) return;
+    ctx.save(); ctx.translate(x, y); ctx.scale(p, p);
+    ctx.fillStyle = own ? '#fff' : '#000'; ctx.strokeStyle = own ? '#fff' : C.blue; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, 16, 0, 7); ctx.fill(); ctx.stroke();
+    if (own) drawX(0, 0, 8, '#000');
+    ctx.restore();
+    text(yr, x, y - 40, { size: 30, weight: 900, align: 'center', color: own ? '#fff' : C.blue, alpha: clamp(p) });
+    text(nm, x, y + 58, { size: 26, weight: 700, fam: TEXT, align: 'center', color: own ? C.soft : C.grey, alpha: clamp(p) });
+  });
+  text('Lo que nació en X hoy lo usan Facebook, Instagram, Threads y TikTok.', CX, 960, { size: 28, weight: 500, fam: TEXT, color: C.grey, align: 'center', alpha: E.outCubic(prog(lt, 2.0, 2.4)) * exitAlpha(lt, d) });
+});
+{ const s = SCENES[SCENES.length - 1].s; cue('hit', s + .05, { big: 1 }); cue('hit', s + .45); [0, 1, 2, 3].forEach(i => cue('blip', s + .85 + i * .22, { n: i + 1 })); }
+
 // ════════════════════════ 2/6 IDENTIDAD ════════════════════
 chapterCard(2, '#Identidad', 'Identidad y arquitectura');
 
@@ -449,7 +506,7 @@ scene('c2-formula', 3, (lt, d) => {
   header(lt, 2, '#Identidad');
   const out = d - .45, ox = -E.inExpo(prog(lt, out, d)) * 2000;
   ctx.save(); ctx.translate(ox, 0);
-  const items = [[300, 'Naming', 'Una sola letra'], [820, 'Signo', 'Doble barra matemática'], [1500, 'Claim (de hecho)', 'Heredado de Twitter']];
+  const items = [[300, 'Naming', 'Letra inicial, no acrónimo'], [820, 'Signo', 'Doble barra matemática'], [1500, 'Claim (de hecho)', 'Heredado de Twitter']];
   items.forEach(([x, l, sub], i) => {
     label(l, x, 350, lt - .1 - i * .4, { align: 'center', color: C.blue });
     text(sub, x, 690, { size: 26, weight: 500, fam: TEXT, color: C.grey, align: 'center', alpha: E.outCubic(prog(lt, .4 + i * .4, .8 + i * .4)) });
@@ -470,6 +527,29 @@ scene('c2-formula', 3, (lt, d) => {
   if (xp > .001) drawX(300 + ox, 520, 100 * xp);
 });
 cue('pop', SCENES[SCENES.length - 1].s + .1); cue('pop', SCENES[SCENES.length - 1].s + .5); cue('pop', SCENES[SCENES.length - 1].s + .9); cue('swoosh', SCENES[SCENES.length - 1].s + 1.45);
+scene('c2-libertad', 3, (lt, d) => {
+  header(lt, 2, '#Identidad');
+  const out = d - .4;
+  label('Valor central · política de moderación', 120, 250, lt, { color: C.blue, alpha: 1 - prog(lt, out, out + .2) });
+  kt('Libertad de expresión,', 120, 420, { t: lt - .05, size: 124, weight: 900, st: .014, out, outSt: .005, outDur: .3 });
+  font(124, 900); const w1 = tw('no libertad de ');
+  kt('no libertad de ', 120, 570, { t: lt - .35, size: 124, weight: 900, st: .014, color: C.grey, out: out + .03, outSt: .005, outDur: .3 });
+  // "alcance." gets throttled: it shrinks and dims, like a limited post
+  const sh = E.outExpo(prog(lt, 1.35, 1.9));
+  ctx.save(); ctx.translate(120 + w1, 570); ctx.scale(lerp(1, .5, sh), lerp(1, .5, sh));
+  kt('alcance.', 0, 0, { t: lt - .55, size: 124, weight: 900, st: .02, color: C.blue, alpha: lerp(1, .45, sh), out: out + .06, outSt: .005, outDur: .3 });
+  ctx.restore();
+  const P = ['No se borra', 'Se limita su alcance', 'Sin publicidad al lado'];
+  let px = 120;
+  P.forEach((t, i) => {
+    const p = E.outBackS(prog(lt, 1.7 + i * .15, 2.05 + i * .15)) * (1 - E.inBack(prog(lt, out, d)));
+    font(28, 700, TEXT, 0); const w = tw(t) + 48;
+    if (p > 0) { ctx.save(); ctx.translate(px + w / 2, 720); ctx.scale(p, p); rrect(-w / 2, -28, w, 56, 28); ctx.fillStyle = i === 1 ? C.blue : '#1d1f23'; ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillText(t, -w / 2 + 24, 10); ctx.restore(); }
+    px += w + 18;
+  });
+});
+{ const s = SCENES[SCENES.length - 1].s; cue('hit', s + .05); cue('hit', s + .35); cue('fall', s + 1.35); [0, 1, 2].forEach(i => cue('pop', s + 1.7 + i * .15, { n: i + 3 })); }
+
 
 scene('c2-personalidad', 4, (lt, d) => {
   header(lt, 2, '#Identidad');
@@ -1032,6 +1112,7 @@ cue('pop', tEnd + 3.4); cue('click', tEnd + 4.1); cue('end', tEnd + 4.15);
 
 const TOTAL = cursor;
 window.TOTAL = TOTAL;
+window.DRUMS_OFF = tEnd;
 
 // auto cues: a short tonal swipe on every content cut
 SCENES.forEach(s => { if (s.punch !== false && !/^card/.test(s.name)) cue('cut', s.s); });
@@ -1044,7 +1125,7 @@ POST.push(t => {
 });
 
 // ── global dynamism layer ──
-const BEAT0 = 14, BEAT1 = 116.5;
+const BEAT0 = 14, BEAT1 = tEnd;
 let glowCanvas = null;
 function bgLayer(t) {
   if (t < BEAT0 + .3) return;

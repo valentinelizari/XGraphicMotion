@@ -11,7 +11,7 @@ TOTAL = cues['total']
 N = int(SR * TOTAL)
 rng = np.random.default_rng(7)
 BEAT = 0.5
-DRUMS_ON, DRUMS_OFF = 14.0, 116.5
+DRUMS_ON, DRUMS_OFF = 14.0, cues.get('drumsOff', 116.5)
 
 def t_axis(d): return np.arange(int(d * SR)) / SR
 def add(buf, x, t0, gain=1.0, pan=0.0):
@@ -109,7 +109,7 @@ arp = np.zeros(N)
 pl = lambda f: (np.sin(2 * np.pi * f * t_axis(.18)) * np.exp(-t_axis(.18) / .05))
 for s in range(int(TOTAL / (BEAT / 4))):
     t = s * BEAT / 4
-    if t < 6.0 or t >= 118: continue
+    if t < 6.0 or t >= DRUMS_OFF + 1.5: continue
     ch = CH[int(t / bar) % 4]
     note = ch[[0, 1, 2, 1, 0, 2, 1, 2][s % 8]] + 12
     x = pl(mtof(note)); i = int(t * SR); x = x[: max(0, N - i)]
